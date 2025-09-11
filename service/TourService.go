@@ -1,11 +1,13 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"database-example/model"
 	"database-example/repo"
+
 	"github.com/google/uuid"
 )
 
@@ -13,7 +15,11 @@ type TourService struct {
 	TourRepo *repo.TourRepository
 }
 
-func (s *TourService) CreateTour(authorID string, name string, description string, difficulty string, tags []string) (*model.Tour, error) {
+func NewTourService(tourRepo *repo.TourRepository) *TourService {
+	return &TourService{TourRepo: tourRepo}
+}
+
+func (s *TourService) CreateTour(ctx context.Context, authorID, name, description, difficulty string, tags []string) (*model.Tour, error) {
 	if name == "" {
 		return nil, errors.New("tour name is required")
 	}
@@ -25,35 +31,31 @@ func (s *TourService) CreateTour(authorID string, name string, description strin
 		Description: description,
 		Difficulty:  difficulty,
 		Tags:        tags,
-		Status:      "draft",   // podrazumevano
-		Price:       0,         // podrazumevano
+		Status:      "draft",
+		Price:       0,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
 
-	err := s.TourRepo.CreateTour(tour)
+	err := s.TourRepo.CreateTour(ctx, tour)
 	if err != nil {
 		return nil, err
 	}
 	return tour, nil
 }
 
-// GetTour vraća turu po ID
-func (s *TourService) GetTour(id string) (*model.Tour, error) {
-	return s.TourRepo.GetTourByID(id)
+func (s *TourService) GetTour(ctx context.Context, id string) (*model.Tour, error) {
+	return s.TourRepo.GetTourByID(ctx, id)
 }
 
-// GetToursByAuthor vraća sve ture određenog autora
-func (s *TourService) GetToursByAuthor(authorID string) ([]model.Tour, error) {
-	return s.TourRepo.GetToursByAuthor(authorID)
+func (s *TourService) GetToursByAuthor(ctx context.Context, authorID string) ([]model.Tour, error) {
+	return s.TourRepo.GetToursByAuthor(ctx, authorID)
 }
 
-// PublishTour objavljuje turu (menja status iz draft u published)
-func (s *TourService) PublishTour(id string) error {
-	return s.TourRepo.UpdateTourStatus(id, "published")
+func (s *TourService) PublishTour(ctx context.Context, id string) error {
+	return s.TourRepo.UpdateTourStatus(ctx, id, "published")
 }
 
-// GetAllTours vraća sve ture iz baze
-func (s *TourService) GetAllTours() ([]model.Tour, error) {
-	return s.TourRepo.GetAllTours()
+func (s *TourService) GetAllTours(ctx context.Context) ([]model.Tour, error) {
+	return s.TourRepo.GetAllTours(ctx)
 }

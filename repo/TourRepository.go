@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"database-example/model"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -13,18 +14,21 @@ type TourRepository struct {
 	Collection *mongo.Collection
 }
 
-// CreateTour dodaje novu turu
-func (r *TourRepository) CreateTour(tour *model.Tour) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// Novi repozitorijum
+func NewTourRepository(collection *mongo.Collection) *TourRepository {
+	return &TourRepository{Collection: collection}
+}
+
+func (r *TourRepository) CreateTour(ctx context.Context, tour *model.Tour) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	_, err := r.Collection.InsertOne(ctx, tour)
 	return err
 }
 
-// GetTourByID vraća turu po ID-u
-func (r *TourRepository) GetTourByID(id string) (*model.Tour, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (r *TourRepository) GetTourByID(ctx context.Context, id string) (*model.Tour, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var tour model.Tour
@@ -35,9 +39,8 @@ func (r *TourRepository) GetTourByID(id string) (*model.Tour, error) {
 	return &tour, nil
 }
 
-// GetToursByAuthor vraća sve ture za datog autora
-func (r *TourRepository) GetToursByAuthor(authorID string) ([]model.Tour, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func (r *TourRepository) GetToursByAuthor(ctx context.Context, authorID string) ([]model.Tour, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	cursor, err := r.Collection.Find(ctx, bson.M{"authorId": authorID})
@@ -53,22 +56,16 @@ func (r *TourRepository) GetToursByAuthor(authorID string) ([]model.Tour, error)
 	return tours, nil
 }
 
-// UpdateTourStatus menja status ture (npr. draft -> published)
-func (r *TourRepository) UpdateTourStatus(id string, status string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (r *TourRepository) UpdateTourStatus(ctx context.Context, id string, status string) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	_, err := r.Collection.UpdateOne(
-		ctx,
-		bson.M{"id": id},
-		bson.M{"$set": bson.M{"status": status}},
-	)
+	_, err := r.Collection.UpdateOne(ctx, bson.M{"id": id}, bson.M{"$set": bson.M{"status": status}})
 	return err
 }
 
-func (r *TourRepository) GetAllTours() ([]model.Tour, error) {
-	var tours []model.Tour
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (r *TourRepository) GetAllTours(ctx context.Context) ([]model.Tour, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	cursor, err := r.Collection.Find(ctx, bson.M{})
@@ -77,18 +74,17 @@ func (r *TourRepository) GetAllTours() ([]model.Tour, error) {
 	}
 	defer cursor.Close(ctx)
 
+	var tours []model.Tour
 	for cursor.Next(ctx) {
-		var tour model.Tour
-		if err := cursor.Decode(&tour); err != nil {
+		var t model.Tour
+		if err := cursor.Decode(&t); err != nil {
 			return nil, err
 		}
-		tours = append(tours, tour)
+		tours = append(tours, t)
 	}
-
 	if err := cursor.Err(); err != nil {
 		return nil, err
 	}
 
 	return tours, nil
 }
-

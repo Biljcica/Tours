@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+option go_package = "proto/tours";
+
+service ToursService {
+  // Kreiranje nove ture
+  rpc CreateTour(CreateTourRequest) returns (TourResponse);
+
+  // Preuzimanje svih tura od autora
+  rpc GetAuthorTours(GetAuthorToursRequest) returns (GetAuthorToursResponse);
+}
+
+
+// Zahtev za kreiranje ture
+message CreateTourRequest {
+  string name = 1;
+  string description = 2;
+  string difficulty = 3;
+  repeated string tags = 4;
+  string status = 5; // npr. "draft"
+  double price = 6;
+  string authorId = 7; // možeš dodati ako vezuješ turu za korisnika
+}
+
+// Odgovor sa kreiranom turom
+message TourResponse {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string difficulty = 4;
+  repeated string tags = 5;
+  string status = 6;
+  double price = 7;
+  string authorId = 8;
+}
+
+// Zahtev za listu tura autora
+message GetAuthorToursRequest {
+  string authorId = 1;
+}
+
+// Odgovor sa listom tura
+message GetAuthorToursResponse {
+  repeated TourResponse tours = 1;
+}

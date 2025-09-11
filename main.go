@@ -1,94 +1,87 @@
 package main
 
 import (
-	"database-example/handler"
-	"database-example/model"
+	"context"
+	handlers "database-example/handler"
+	tourspb "database-example/proto/tours"
 	"database-example/repo"
 	"database-example/service"
-	"log"
-	"go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
-	"time"
-	"net/http"
-    "github.com/gorilla/mux"
-	"context"
 	"fmt"
+	"log"
+	"net"
 	"os"
 	"os/signal"
-    "syscall"
+	"syscall"
+	"time"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func initDB() *mongo.Database {
 	mongoUri := os.Getenv("MONGODB_URI")
-	clientOptions := options.Client().ApplyURI("mongodb://" + mongoUri + "/?connect=direct")
+	if mongoUri == "" {
+		log.Fatal("MONGODB_URI environment variable not set")
+	}
 
+	clientOptions := options.Client().ApplyURI(mongoUri)
 	client, err := mongo.Connect(context.TODO(), clientOptions)
-
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("MongoDB connection error:", err)
 	}
 
-	// Check the connection
-	err = client.Ping(context.TODO(), nil)
-
-	if err != nil {
-		log.Fatal(err)
+	if err := client.Ping(context.TODO(), nil); err != nil {
+		log.Fatal("MongoDB ping error:", err)
 	}
+
 	fmt.Println("Connected to MongoDB!")
-
-	database := client.Database("tours")
-	collection := database.Collection("tours")
-	fmt.Println(collection.Name())
-
-	tour := model.Tour{
-		ID:          "aec7e123-233d-4a09-a289-75308ea5b7e6",
-		AuthorID:    "author-123",
-		Name:        "Planinarska tura",
-		Description: "Tura kroz planine sa lepim vidicima",
-		Difficulty:  "srednja",
-		Tags:        []string{"planine", "aktivnost", "priroda"},
-		Status:      "draft",
-		Price:       0,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
-
-	insertResult, err := collection.InsertOne(context.TODO(), tour)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Inserted a single document: ", insertResult.InsertedID)
-
-	return database
+	return client.Database("toursdb")
 }
-
-func startServer(tourHandler *handler.TourHandler) {
-	router := mux.NewRouter().StrictSlash(true)
-
-	router.HandleFunc("/tours", tourHandler.CreateTour).Methods("POST")
-	router.HandleFunc("/tours/{id}", tourHandler.GetTour).Methods("GET")
-	router.HandleFunc("/authors/{authorID}/tours", tourHandler.GetToursByAuthor).Methods("GET")
-	router.HandleFunc("/tours/{id}/publish", tourHandler.PublishTour).Methods("PUT")
-	router.HandleFunc("/tours", tourHandler.GetAllTours).Methods("GET")
-
-	println("Server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", router))
-}
-
 
 func main() {
-	quit := make(chan os.Signal)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	database := initDB()
-	if database == nil {
-		print("FAILED TO CONNECT TO DB")
-		return
+	logger := log.New(os.Stdout, "[tours] ", log.LstdFlags)
+
+	// inicijalizacija baze
+	db := initDB()
+	collection := db.Collection("tours")
+
+	// kreiranje repozitorijuma, servisa i handlera
+	tourRepo := &repo.TourRepository{Collection: collection}
+	tourService := &service.TourService{TourRepo: tourRepo}
+	tourHandler := handlers.NewToursHandler(tourService)
+
+	// adresa gRPC servera
+	addr := os.Getenv("TOURS_SERVICE_ADDRESS")
+	if addr == "" {
+		addr = ":8084"
 	}
 
-	collection := database.Collection("tours")
-	repo := &repo.TourRepository{Collection: collection}
-	service := &service.TourService{TourRepo: repo}
-	handler := &handler.TourHandler{TourService: service}
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		logger.Fatal("Failed to listen:", err)
+	}
 
-	startServer(handler)
+	grpcServer := grpc.NewServer()
+	tourspb.RegisterToursServiceServer(grpcServer, tourHandler)
+	reflection.Register(grpcServer)
+
+	// start gRPC servera
+	go func() {
+		logger.Println("Starting gRPC server on", addr)
+		if err := grpcServer.Serve(listener); err != nil {
+			logger.Fatal("gRPC server error:", err)
+		}
+	}()
+
+	// čekanje na prekid
+	stopCh := make(chan os.Signal, 1)
+	signal.Notify(stopCh, os.Interrupt, syscall.SIGTERM)
+	<-stopCh
+
+	logger.Println("Shutting down gRPC server...")
+	grpcServer.GracefulStop()
+	time.Sleep(1 * time.Second) // opcionalno da se završe aktuelni pozivi
 }

@@ -35,6 +35,8 @@ func (s *TourService) CreateTour(ctx context.Context, authorID, name, descriptio
 		Price:       0,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
+		KeyPoints:   []model.KeyPoint{}, // <- prazna lista
+
 	}
 
 	err := s.TourRepo.CreateTour(ctx, tour)
@@ -58,4 +60,22 @@ func (s *TourService) PublishTour(ctx context.Context, id string) error {
 
 func (s *TourService) GetAllTours(ctx context.Context) ([]model.Tour, error) {
 	return s.TourRepo.GetAllTours(ctx)
+}
+
+func (s *TourService) AddKeyPointToTour(ctx context.Context, tourID string, keyPoint *model.KeyPoint) (*model.Tour, error) {
+	tour, err := s.TourRepo.GetTourByID(ctx, tourID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Dodaj key point u listu
+	tour.KeyPoints = append(tour.KeyPoints, *keyPoint)
+
+	// Sačuvaj izmene u bazi
+	err = s.TourRepo.UpdateTour(ctx, tourID, tour)
+	if err != nil {
+		return nil, err
+	}
+
+	return tour, nil
 }

@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"context"
+	"database-example/model"
 	pb "database-example/proto/tours"
 	"database-example/service"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -15,28 +17,55 @@ type ToursHandler struct {
 }
 
 func NewToursHandler(toursService *service.TourService) *ToursHandler {
-	return &ToursHandler{TourService: toursService}
+	return &ToursHandler{
+		TourService: toursService,
+	}
 }
 
+// ------------------------------------------------
+// Pomocna funkcija: mapiranje model.Tour -> pb.TourResponse
+// ------------------------------------------------
+func mapTourToPb(t *model.Tour) *pb.TourResponse {
+	var pbKeyPoints []*pb.KeyPoint
+	for _, kp := range t.KeyPoints {
+		pbKeyPoints = append(pbKeyPoints, &pb.KeyPoint{
+			Id:          kp.ID,
+			Name:        kp.Name,
+			Description: kp.Description,
+			Latitude:    kp.Latitude,
+			Longitude:   kp.Longitude,
+			ImageURL:    kp.ImageURL,
+		})
+	}
+
+	return &pb.TourResponse{
+		Id:          t.ID,
+		Name:        t.Name,
+		Description: t.Description,
+		Difficulty:  t.Difficulty,
+		Tags:        t.Tags,
+		Price:       t.Price,
+		Status:      t.Status,
+		AuthorId:    t.AuthorID,
+		KeyPoints:   pbKeyPoints,
+	}
+}
+
+// ------------------------------------------------
 // Kreiranje ture
+// ------------------------------------------------
 func (h *ToursHandler) CreateTour(ctx context.Context, req *pb.CreateTourRequest) (*pb.TourResponse, error) {
 	tour, err := h.TourService.CreateTour(ctx, req.AuthorId, req.Name, req.Description, req.Difficulty, req.Tags)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create tour: %v", err)
 	}
 
-	return &pb.TourResponse{
-		Id:          tour.ID,
-		Name:        tour.Name,
-		Description: tour.Description,
-		Difficulty:  tour.Difficulty,
-		Tags:        tour.Tags,
-		Price:       tour.Price,
-		Status:      tour.Status,
-	}, nil
+	return mapTourToPb(tour), nil
 }
 
-// Vraća sve ture
+// ------------------------------------------------
+// Vraća sve ture autora
+// ------------------------------------------------
 func (h *ToursHandler) GetAuthorTours(ctx context.Context, req *pb.GetAuthorToursRequest) (*pb.GetAuthorToursResponse, error) {
 	tours, err := h.TourService.GetToursByAuthor(ctx, req.AuthorId)
 	if err != nil {
@@ -45,15 +74,7 @@ func (h *ToursHandler) GetAuthorTours(ctx context.Context, req *pb.GetAuthorTour
 
 	var pbTours []*pb.TourResponse
 	for _, t := range tours {
-		pbTours = append(pbTours, &pb.TourResponse{
-			Id:          t.ID,
-			Name:        t.Name,
-			Description: t.Description,
-			Difficulty:  t.Difficulty,
-			Tags:        t.Tags,
-			Price:       t.Price,
-			Status:      t.Status,
-		})
+		pbTours = append(pbTours, mapTourToPb(&t))
 	}
 
 	return &pb.GetAuthorToursResponse{
@@ -61,58 +82,30 @@ func (h *ToursHandler) GetAuthorTours(ctx context.Context, req *pb.GetAuthorTour
 	}, nil
 }
 
-// Vraća turu po ID-u
-/*func (h *ToursHandler) GetTour(ctx context.Context, req *pb.GetTourRequest) (*pb.TourResponse, error) {
-	tour, err := h.TourService.GetTour(ctx, req.Id)
-	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "tour not found: %v", err)
+// ------------------------------------------------
+// Dodavanje ključne tačke
+// ------------------------------------------------
+func (h *ToursHandler) AddKeyPoint(ctx context.Context, req *pb.AddKeyPointRequest) (*pb.KeyPointResponse, error) {
+	keyPoint := &model.KeyPoint{
+		ID:          uuid.New().String(),
+		Name:        req.Point.Name,
+		Description: req.Point.Description,
+		Latitude:    req.Point.Latitude,
+		Longitude:   req.Point.Longitude,
+		ImageURL:    req.Point.ImageURL,
 	}
 
-	return &pb.TourResponse{
-		Id:          tour.ID,
-		Name:        tour.Name,
-		Description: tour.Description,
-		Difficulty:  tour.Difficulty,
-		Tags:        tour.Tags,
-		Price:       tour.Price,
-		Status:      tour.Status,
+	_, err := h.TourService.AddKeyPointToTour(ctx, req.TourId, keyPoint)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to add key point to tour: %v", err)
+	}
+
+	return &pb.KeyPointResponse{
+		Id:          keyPoint.ID,
+		Name:        keyPoint.Name,
+		Description: keyPoint.Description,
+		Latitude:    keyPoint.Latitude,
+		Longitude:   keyPoint.Longitude,
+		ImageURL:    keyPoint.ImageURL,
 	}, nil
 }
-
-// Vraća sve ture određenog autora
-func (h *ToursHandler) GetToursByAuthor(ctx context.Context, req *pb.GetToursByAuthorRequest) (*pb.GetToursResponse, error) {
-	tours, err := h.TourService.GetToursByAuthor(ctx, req.AuthorId)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get tours by author: %v", err)
-	}
-
-	var pbTours []*pb.TourResponse
-	for _, t := range tours {
-		pbTours = append(pbTours, &pb.TourResponse{
-			Id:          t.ID,
-			Name:        t.Name,
-			Description: t.Description,
-			Difficulty:  t.Difficulty,
-			Tags:        t.Tags,
-			Price:       t.Price,
-			Status:      t.Status,
-		})
-	}
-
-	return &pb.GetToursResponse{
-		Tours: pbTours,
-	}, nil
-}
-
-// Publikuje turu
-func (h *ToursHandler) PublishTour(ctx context.Context, req *pb.PublishTourRequest) (*pb.PublishTourResponse, error) {
-	err := h.TourService.PublishTour(ctx, req.Id)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to publish tour: %v", err)
-	}
-
-	return &pb.PublishTourResponse{
-		Message: "Tour published successfully",
-	}, nil
-}
-*/

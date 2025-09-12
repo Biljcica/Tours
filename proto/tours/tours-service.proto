@@ -8,6 +8,10 @@ service ToursService {
 
   // Preuzimanje svih tura od autora
   rpc GetAuthorTours(GetAuthorToursRequest) returns (GetAuthorToursResponse);
+
+  // Dodavanje ključne tačke na turu
+  rpc AddKeyPoint(AddKeyPointRequest) returns (KeyPointResponse);
+
 }
 
 
@@ -32,6 +36,8 @@ message TourResponse {
   string status = 6;
   double price = 7;
   string authorId = 8;
+  repeated KeyPoint keyPoints = 9; // <- dodaj ovo
+
 }
 
 // Zahtev za listu tura autora
@@ -42,4 +48,27 @@ message GetAuthorToursRequest {
 // Odgovor sa listom tura
 message GetAuthorToursResponse {
   repeated TourResponse tours = 1;
+}
+
+message KeyPoint {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  double latitude = 4;
+  double longitude = 5;
+  string imageURL = 6;
+}
+
+message AddKeyPointRequest {
+  string tourId = 1;       // ID ture kojoj se dodaje tačka
+  KeyPoint point = 2;      // Detalji tačke
+}
+
+message KeyPointResponse {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  double latitude = 4;
+  double longitude = 5;
+  string imageURL = 6;
 }

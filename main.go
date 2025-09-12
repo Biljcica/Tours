@@ -51,8 +51,13 @@ func main() {
 	// kreiranje repozitorijuma, servisa i handlera
 	tourRepo := &repo.TourRepository{Collection: collection}
 	tourService := &service.TourService{TourRepo: tourRepo}
+
+	//	keypointRepo := &repo.KeypointRepository{Collection: db.Collection("keypoints")}
+	//keypointService := &service.KeypointService{KeypointRepo: keypointRepo}
 	tourHandler := handlers.NewToursHandler(tourService)
 
+	/*keypointHandler := handlers.NewKeypointHandler(keypointService)
+	 */
 	// adresa gRPC servera
 	addr := os.Getenv("TOURS_SERVICE_ADDRESS")
 	if addr == "" {
@@ -66,6 +71,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	tourspb.RegisterToursServiceServer(grpcServer, tourHandler)
+
 	reflection.Register(grpcServer)
 
 	// start gRPC servera

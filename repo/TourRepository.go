@@ -88,3 +88,23 @@ func (r *TourRepository) GetAllTours(ctx context.Context) ([]model.Tour, error) 
 
 	return tours, nil
 }
+
+func (r *TourRepository) UpdateTour(ctx context.Context, id string, updatedTour *model.Tour) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	update := bson.M{
+		"$set": bson.M{
+			"name":        updatedTour.Name,
+			"description": updatedTour.Description,
+			"difficulty":  updatedTour.Difficulty,
+			"tags":        updatedTour.Tags,
+			"status":      updatedTour.Status,
+			"keypoints":   updatedTour.KeyPoints,
+			// dodaj i ostala polja ako ih imaš
+		},
+	}
+
+	_, err := r.Collection.UpdateOne(ctx, bson.M{"id": id}, update)
+	return err
+}

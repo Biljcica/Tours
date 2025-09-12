@@ -7,16 +7,17 @@ import (
 )
 
 type Tour struct {
-	ID          string    `json:"id" bson:"id"`
-	AuthorID    string    `json:"authorId" bson:"authorId"`
-	Name        string    `json:"name" bson:"name"`
-	Description string    `json:"description" bson:"description"`
-	Difficulty  string    `json:"difficulty" bson:"difficulty"` // težina (npr. "easy", "medium", "hard")
-	Tags        []string  `json:"tags" bson:"tags"`
-	Status      string    `json:"status" bson:"status"` // draft/published
-	Price       float64   `json:"price" bson:"price"`
-	CreatedAt   time.Time `json:"createdAt" bson:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt" bson:"updatedAt"`
+	ID          string     `json:"id" bson:"id"`
+	AuthorID    string     `json:"authorId" bson:"authorId"`
+	Name        string     `json:"name" bson:"name"`
+	Description string     `json:"description" bson:"description"`
+	Difficulty  string     `json:"difficulty" bson:"difficulty"`
+	Tags        []string   `json:"tags" bson:"tags"`
+	Status      string     `json:"status" bson:"status"`
+	Price       float64    `json:"price" bson:"price"`
+	KeyPoints   []KeyPoint `json:"keypoints" bson:"keypoints"`
+	CreatedAt   time.Time  `json:"createdAt" bson:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt" bson:"updatedAt"`
 }
 
 func (t *Tour) BeforeCreate() {

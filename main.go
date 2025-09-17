@@ -13,6 +13,7 @@ import (
 	handlers "database-example/handler"
 	tourspb "database-example/proto/tours"
 	imagepb "database-example/proto/image"
+	positionpb "database-example/proto/position"
 	"database-example/repo"
 	"database-example/service"
 	
@@ -49,11 +50,18 @@ func main() {
 	// inicijalizacija baze
 	db := initDB()
 	collection := db.Collection("tours")
+	positionCollection := db.Collection("positions")
 
 	// kreiranje repozitorijuma, servisa i handlera
+	// za Tour
 	tourRepo := &repo.TourRepository{Collection: collection}
 	tourService := &service.TourService{TourRepo: tourRepo}
 	tourHandler := handlers.NewToursHandler(tourService)
+
+	// za Position
+	positionRepo := repo.NewPositionRepository(positionCollection) 
+	positionService := service.NewPositionService(positionRepo)
+	positionHandler := handlers.NewPositionHandler(positionService)
 
 	// --- Folder za upload slika ---
 	uploadDir := "./uploads"
@@ -80,6 +88,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 	tourspb.RegisterToursServiceServer(grpcServer, tourHandler)
 	imagepb.RegisterImageServiceServer(grpcServer, tourImageHandler)
+	positionpb.RegisterPositionServiceServer(grpcServer, positionHandler)
 
 	reflection.Register(grpcServer)
 

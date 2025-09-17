@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"time"
+	"sort"
 
 	"database-example/model"
 
@@ -107,4 +108,31 @@ func (r *TourRepository) UpdateTour(ctx context.Context, id string, updatedTour 
 
 	_, err := r.Collection.UpdateOne(ctx, bson.M{"id": id}, update)
 	return err
+}
+
+func (r *TourRepository) DeleteKeyPoint(ctx context.Context, tourId, keyPointId string) error {
+    tour, err := r.GetTourByID(ctx, tourId)
+    if err != nil {
+        return err
+    }
+
+    newKeyPoints := make([]model.KeyPoint, 0)
+    order := int32(1)
+
+    // Sortiraj sve kljucne tacke 
+    sort.SliceStable(tour.KeyPoints, func(i, j int) bool {
+        return tour.KeyPoints[i].Order < tour.KeyPoints[j].Order
+    })
+
+    for _, kp := range tour.KeyPoints {
+        if kp.ID == keyPointId {
+            continue // preskoci obrisanu tacku
+        }
+        kp.Order = order // reorduj preostale tacke
+        newKeyPoints = append(newKeyPoints, kp)
+        order++
+    }
+
+    tour.KeyPoints = newKeyPoints
+    return r.UpdateTour(ctx, tourId, tour)
 }

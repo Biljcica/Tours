@@ -2,10 +2,6 @@ package main
 
 import (
 	"context"
-	handlers "database-example/handler"
-	tourspb "database-example/proto/tours"
-	"database-example/repo"
-	"database-example/service"
 	"fmt"
 	"log"
 	"net"
@@ -14,6 +10,12 @@ import (
 	"syscall"
 	"time"
 
+	handlers "database-example/handler"
+	tourspb "database-example/proto/tours"
+	imagepb "database-example/proto/image"
+	"database-example/repo"
+	"database-example/service"
+	
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -51,13 +53,19 @@ func main() {
 	// kreiranje repozitorijuma, servisa i handlera
 	tourRepo := &repo.TourRepository{Collection: collection}
 	tourService := &service.TourService{TourRepo: tourRepo}
-
-	//	keypointRepo := &repo.KeypointRepository{Collection: db.Collection("keypoints")}
-	//keypointService := &service.KeypointService{KeypointRepo: keypointRepo}
 	tourHandler := handlers.NewToursHandler(tourService)
 
-	/*keypointHandler := handlers.NewKeypointHandler(keypointService)
-	 */
+	// --- Folder za upload slika ---
+	uploadDir := "./uploads"
+	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+			logger.Fatal("Failed to create uploads directory:", err)
+		}
+	}
+
+	// Kreiranje ImageHandlera
+	tourImageHandler := handlers.NewImageHandler(uploadDir)
+
 	// adresa gRPC servera
 	addr := os.Getenv("TOURS_SERVICE_ADDRESS")
 	if addr == "" {
@@ -71,6 +79,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	tourspb.RegisterToursServiceServer(grpcServer, tourHandler)
+	imagepb.RegisterImageServiceServer(grpcServer, tourImageHandler)
 
 	reflection.Register(grpcServer)
 

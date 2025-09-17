@@ -1,7 +1,9 @@
-package handlers
+package handler
 
 import (
 	"context"
+	"fmt"
+	
 	"database-example/model"
 	pb "database-example/proto/tours"
 	"database-example/service"
@@ -35,6 +37,7 @@ func mapTourToPb(t *model.Tour) *pb.TourResponse {
 			Latitude:    kp.Latitude,
 			Longitude:   kp.Longitude,
 			ImageURL:    kp.ImageURL,
+			Order:		 kp.Order,
 		})
 	}
 
@@ -82,6 +85,24 @@ func (h *ToursHandler) GetAuthorTours(ctx context.Context, req *pb.GetAuthorTour
 	}, nil
 }
 
+// Dobavi turu po id
+func (h *ToursHandler) GetTourById(ctx context.Context, req *pb.GetTourByIdRequest) (*pb.TourResponse, error) {
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "tour id is required")
+	}
+
+	// Pozovi service
+	tour, err := h.TourService.GetTour(ctx, req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get tour: %v", err)
+	}
+
+	// Pretvori model.Tour u pb.TourResponse
+	resp := mapTourToPb(tour)
+
+	return resp, nil
+}
+
 // ------------------------------------------------
 // Dodavanje ključne tačke
 // ------------------------------------------------
@@ -93,19 +114,78 @@ func (h *ToursHandler) AddKeyPoint(ctx context.Context, req *pb.AddKeyPointReque
 		Latitude:    req.Point.Latitude,
 		Longitude:   req.Point.Longitude,
 		ImageURL:    req.Point.ImageURL,
+		Order:		 req.Point.Order,
 	}
 
-	_, err := h.TourService.AddKeyPointToTour(ctx, req.TourId, keyPoint)
+	tour, err := h.TourService.AddKeyPointToTour(ctx, req.TourId, keyPoint)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to add key point to tour: %v", err)
 	}
 
+	// pronađi novu KeyPoint u addedKP.KeyPoints
+	var returnedKP *model.KeyPoint
+	for _, kp := range tour.KeyPoints {
+		if kp.ID == keyPoint.ID {
+			returnedKP = &kp
+			break
+		}
+	}
+
 	return &pb.KeyPointResponse{
-		Id:          keyPoint.ID,
-		Name:        keyPoint.Name,
-		Description: keyPoint.Description,
-		Latitude:    keyPoint.Latitude,
-		Longitude:   keyPoint.Longitude,
-		ImageURL:    keyPoint.ImageURL,
+		Id:          returnedKP.ID,
+		Name:        returnedKP.Name,
+		Description: returnedKP.Description,
+		Latitude:    returnedKP.Latitude,
+		Longitude:   returnedKP.Longitude,
+		ImageURL:    returnedKP.ImageURL,
+		Order:       returnedKP.Order, 
 	}, nil
+
+}
+
+// Update kljucne tacke
+func (h *ToursHandler) UpdateKeyPoint(ctx context.Context, req *pb.UpdateKeyPointRequest) (*pb.KeyPointResponse, error) {
+	kp := req.KeyPoint
+	tourId := req.TourId
+
+	updatedKP := &model.KeyPoint{
+		ID:          kp.Id,
+		Name:        kp.Name,
+		Description: kp.Description,
+		Latitude:    kp.Latitude,
+		Longitude:   kp.Longitude,
+		ImageURL:    kp.ImageURL,
+		Order:       kp.Order,
+	}
+
+	res, err := h.TourService.UpdateKeyPoint(tourId, updatedKP)
+    if err != nil {
+        return nil, err
+    }
+
+    // 3. Vrati KeyPointResponse
+    return &pb.KeyPointResponse{
+        Id:          res.ID,
+        Name:        res.Name,
+        Description: res.Description,
+        Latitude:    res.Latitude,
+        Longitude:   res.Longitude,
+        ImageURL:    res.ImageURL,
+        Order:       res.Order,
+    }, nil
+}
+
+// Brisanje kljucne tacke
+func (h *ToursHandler) DeleteKeyPoint(ctx context.Context, req *pb.DeleteKeyPointRequest) (*pb.DeleteKeyPointResponse, error) {
+	if req.TourId == "" || req.KeypointId == "" {
+		return &pb.DeleteKeyPointResponse{Success: false}, fmt.Errorf("tourId and keypointId are required")
+	}
+
+	// Pozovi servis
+	err := h.TourService.DeleteKeyPoint(ctx, req.TourId, req.KeypointId)
+	if err != nil {
+        return &pb.DeleteKeyPointResponse{Success: false}, err
+    }
+
+	return &pb.DeleteKeyPointResponse{Success: true}, nil
 }

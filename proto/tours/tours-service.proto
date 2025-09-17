@@ -9,9 +9,17 @@ service ToursService {
   // Preuzimanje svih tura od autora
   rpc GetAuthorTours(GetAuthorToursRequest) returns (GetAuthorToursResponse);
 
+  //Dobavljanje ture po id
+  rpc GetTourById(GetTourByIdRequest) returns (TourResponse);
+
   // Dodavanje ključne tačke na turu
   rpc AddKeyPoint(AddKeyPointRequest) returns (KeyPointResponse);
 
+  // Izmjena kljucne tacke
+  rpc UpdateKeyPoint(UpdateKeyPointRequest) returns (KeyPointResponse);
+
+  // Brisanje kljucne tacke
+  rpc DeleteKeyPoint(DeleteKeyPointRequest) returns (DeleteKeyPointResponse);
 }
 
 
@@ -50,6 +58,10 @@ message GetAuthorToursResponse {
   repeated TourResponse tours = 1;
 }
 
+message GetTourByIdRequest {
+  string id = 1;
+}
+
 message KeyPoint {
   string id = 1;
   string name = 2;
@@ -57,6 +69,7 @@ message KeyPoint {
   double latitude = 4;
   double longitude = 5;
   string imageURL = 6;
+  int32 order = 7;
 }
 
 message AddKeyPointRequest {
@@ -71,4 +84,21 @@ message KeyPointResponse {
   double latitude = 4;
   double longitude = 5;
   string imageURL = 6;
+  int32 order = 7;
+}
+
+
+message UpdateKeyPointRequest {
+  string tourId = 1;
+  KeyPoint keyPoint = 2;
+  string imageURL = 3;
+}
+
+message DeleteKeyPointRequest {
+  string tourId = 1;
+  string keypointId = 2;
+}
+
+message DeleteKeyPointResponse {
+  bool success = 1;
 }

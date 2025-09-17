@@ -12,11 +12,17 @@ type KeyPoint struct {
 	Latitude    float64 `json:"latitude" bson:"latitude"`       // Geografska širina
 	Longitude   float64 `json:"longitude" bson:"longitude"`     // Geografska dužina
 	ImageURL    string  `json:"imageUrl" bson:"imageUrl"`       // URL slike (opciono)
+	Order 		int32	`json:"order" bson:"order"`				// Redoslijed tacke u turi
 }
 
 // Pre-create hook da se generiše ID ako nije postavljen
 func (kp *KeyPoint) BeforeCreate() {
 	if kp.ID == "" {
 		kp.ID = uuid.New().String()
+	}
+
+	// Ako Order nije postavljen, podesi na 1
+	if kp.Order == 0 {
+		kp.Order = 1
 	}
 }

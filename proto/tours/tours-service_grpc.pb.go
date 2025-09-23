@@ -8,6 +8,7 @@ package tours
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -25,6 +26,7 @@ const (
 	ToursService_AddKeyPoint_FullMethodName    = "/ToursService/AddKeyPoint"
 	ToursService_UpdateKeyPoint_FullMethodName = "/ToursService/UpdateKeyPoint"
 	ToursService_DeleteKeyPoint_FullMethodName = "/ToursService/DeleteKeyPoint"
+	ToursService_GetAllTours_FullMethodName    = "/ToursService/GetAllTours"
 )
 
 // ToursServiceClient is the client API for ToursService service.
@@ -43,6 +45,8 @@ type ToursServiceClient interface {
 	UpdateKeyPoint(ctx context.Context, in *UpdateKeyPointRequest, opts ...grpc.CallOption) (*KeyPointResponse, error)
 	// Brisanje kljucne tacke
 	DeleteKeyPoint(ctx context.Context, in *DeleteKeyPointRequest, opts ...grpc.CallOption) (*DeleteKeyPointResponse, error)
+	// Preuzimanje svih tura
+	GetAllTours(ctx context.Context, in *GetAllToursRequest, opts ...grpc.CallOption) (*GetAllToursResponse, error)
 }
 
 type toursServiceClient struct {
@@ -113,6 +117,16 @@ func (c *toursServiceClient) DeleteKeyPoint(ctx context.Context, in *DeleteKeyPo
 	return out, nil
 }
 
+func (c *toursServiceClient) GetAllTours(ctx context.Context, in *GetAllToursRequest, opts ...grpc.CallOption) (*GetAllToursResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAllToursResponse)
+	err := c.cc.Invoke(ctx, ToursService_GetAllTours_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ToursServiceServer is the server API for ToursService service.
 // All implementations must embed UnimplementedToursServiceServer
 // for forward compatibility.
@@ -129,6 +143,8 @@ type ToursServiceServer interface {
 	UpdateKeyPoint(context.Context, *UpdateKeyPointRequest) (*KeyPointResponse, error)
 	// Brisanje kljucne tacke
 	DeleteKeyPoint(context.Context, *DeleteKeyPointRequest) (*DeleteKeyPointResponse, error)
+	// Preuzimanje svih tura
+	GetAllTours(context.Context, *GetAllToursRequest) (*GetAllToursResponse, error)
 	mustEmbedUnimplementedToursServiceServer()
 }
 
@@ -156,6 +172,9 @@ func (UnimplementedToursServiceServer) UpdateKeyPoint(context.Context, *UpdateKe
 }
 func (UnimplementedToursServiceServer) DeleteKeyPoint(context.Context, *DeleteKeyPointRequest) (*DeleteKeyPointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteKeyPoint not implemented")
+}
+func (UnimplementedToursServiceServer) GetAllTours(context.Context, *GetAllToursRequest) (*GetAllToursResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAllTours not implemented")
 }
 func (UnimplementedToursServiceServer) mustEmbedUnimplementedToursServiceServer() {}
 func (UnimplementedToursServiceServer) testEmbeddedByValue()                      {}
@@ -286,6 +305,24 @@ func _ToursService_DeleteKeyPoint_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ToursService_GetAllTours_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAllToursRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ToursServiceServer).GetAllTours(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ToursService_GetAllTours_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ToursServiceServer).GetAllTours(ctx, req.(*GetAllToursRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ToursService_ServiceDesc is the grpc.ServiceDesc for ToursService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -316,6 +353,10 @@ var ToursService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteKeyPoint",
 			Handler:    _ToursService_DeleteKeyPoint_Handler,
+		},
+		{
+			MethodName: "GetAllTours",
+			Handler:    _ToursService_GetAllTours_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

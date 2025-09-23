@@ -11,12 +11,13 @@ import (
 	"time"
 
 	handlers "database-example/handler"
-	tourspb "database-example/proto/tours"
 	imagepb "database-example/proto/image"
 	positionpb "database-example/proto/position"
+	reviewpb "database-example/proto/review" 
+	tourspb "database-example/proto/tours"
 	"database-example/repo"
 	"database-example/service"
-	
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -51,17 +52,24 @@ func main() {
 	db := initDB()
 	collection := db.Collection("tours")
 	positionCollection := db.Collection("positions")
+	reviewCollection := db.Collection("reviews") 
 
 	// kreiranje repozitorijuma, servisa i handlera
+
 	// za Tour
 	tourRepo := &repo.TourRepository{Collection: collection}
 	tourService := &service.TourService{TourRepo: tourRepo}
 	tourHandler := handlers.NewToursHandler(tourService)
 
 	// za Position
-	positionRepo := repo.NewPositionRepository(positionCollection) 
+	positionRepo := repo.NewPositionRepository(positionCollection)
 	positionService := service.NewPositionService(positionRepo)
 	positionHandler := handlers.NewPositionHandler(positionService)
+
+	// za Review - DODAJTE OVO
+	reviewRepo := repo.NewReviewRepository(reviewCollection)
+	reviewService := service.NewReviewService(reviewRepo)
+	reviewHandler := handlers.NewReviewHandler(reviewService)
 
 	// --- Folder za upload slika ---
 	uploadDir := "./uploads"
@@ -86,15 +94,19 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
+
+	// Registracija svih servisa
 	tourspb.RegisterToursServiceServer(grpcServer, tourHandler)
 	imagepb.RegisterImageServiceServer(grpcServer, tourImageHandler)
 	positionpb.RegisterPositionServiceServer(grpcServer, positionHandler)
+	reviewpb.RegisterReviewServiceServer(grpcServer, reviewHandler) 
 
 	reflection.Register(grpcServer)
 
 	// start gRPC servera
 	go func() {
 		logger.Println("Starting gRPC server on", addr)
+		logger.Println("Registered services: Tours, Image, Position, Review") 
 		if err := grpcServer.Serve(listener); err != nil {
 			logger.Fatal("gRPC server error:", err)
 		}

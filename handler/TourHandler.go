@@ -16,12 +16,14 @@ import (
 
 type ToursHandler struct {
 	pb.UnimplementedToursServiceServer
-	TourService *service.TourService
+	TourService          *service.TourService
+	TourExecutionService *service.TourExecutionService
 }
 
-func NewToursHandler(toursService *service.TourService) *ToursHandler {
+func NewToursHandler(tourService *service.TourService, tourExecutionService *service.TourExecutionService) *ToursHandler {
 	return &ToursHandler{
-		TourService: toursService,
+		TourService:          tourService,
+		TourExecutionService: tourExecutionService,
 	}
 }
 
@@ -289,8 +291,7 @@ func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursReque
 	}, nil
 }
 
-/*
-func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursRequest) (*pb.GetAllToursResponse, error) {
+/*func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursRequest) (*pb.GetAllToursResponse, error) {
 	tours, err := h.TourService.GetAllTours(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get all tours: %v", err)
@@ -300,5 +301,25 @@ func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursReque
 	for _, t := range tours {
 		pbTours = append(pbTours, mapTourToPb(&t))
 	}
-
+	return &pb.GetAllToursResponse{
+		Tours: pbTours,
+	}, nil
 }*/
+
+func (h *ToursHandler) StartTour(ctx context.Context, req *pb.StartTourRequest) (*pb.StartTourResponse, error) {
+	if req.TourId == "" || req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "tourId i userId su obavezni")
+	}
+
+	// Kreiraj novu TourExecution sesiju preko TourExecutionService
+	exec, err := h.TourExecutionService.StartTour(ctx, req.TourId, req.UserId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to start tour: %v", err)
+	}
+
+	// Vraćamo samo ID sesije i status
+	return &pb.StartTourResponse{
+		TourExecutionId: exec.ID,
+		Status:          string(exec.Status), // ACTIVE
+	}, nil
+}

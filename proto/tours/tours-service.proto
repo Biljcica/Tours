@@ -24,6 +24,10 @@ service ToursService {
   rpc GetPublishedTours(GetPublishedToursRequest) returns (GetPublishedToursResponse);
 
   rpc GetAllTours(GetAllToursRequest) returns (GetAllToursResponse);
+
+  rpc StartTour(StartTourRequest) returns (StartTourResponse);
+
+  rpc LeaveTour(LeaveTourRequest) returns (LeaveTourResponse);
 }
 
 // Zahtev je prazan
@@ -132,4 +136,24 @@ message GetAllToursRequest {}
 // Odgovor sadrži listu svih tura
 message GetAllToursResponse {
   repeated PublishedTour tours = 1;
+}
+
+message StartTourRequest {
+  string tourId = 1;
+  string userId = 2;
+}
+
+// Odgovor sadrži ID kreirane sesije i status
+message StartTourResponse {
+  string tourExecutionId = 1;
+  string status = 2; // ACTIVE
+}
+
+message LeaveTourRequest {
+  string tourExecutionId = 1;
+  string userId = 2;
+}
+
+message LeaveTourResponse {
+  string status = 1; // ABANDONED
 }

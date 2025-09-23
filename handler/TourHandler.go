@@ -7,7 +7,6 @@ import (
 	"database-example/model"
 	pb "database-example/proto/tours"
 	"database-example/service"
-	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -243,7 +242,7 @@ func (h *ToursHandler) GetPublishedTours(ctx context.Context, req *pb.GetPublish
 	}, nil
 }
 
-/*func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursRequest) (*pb.GetAllToursResponse, error) {
+func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursRequest) (*pb.GetAllToursResponse, error) {
 	tours, err := h.TourService.GetAllTours(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get tours: %v", err)
@@ -285,8 +284,12 @@ func (h *ToursHandler) GetPublishedTours(ctx context.Context, req *pb.GetPublish
 	}
 
 	fmt.Printf("=== DEBUG: Filtered published tours count: %d ===\n", len(pbTours))
+	return &pb.GetAllToursResponse{
+		Tours: pbTours,
+	}, nil
+}
 
-=======*/
+/*
 func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursRequest) (*pb.GetAllToursResponse, error) {
 	tours, err := h.TourService.GetAllTours(ctx)
 	if err != nil {
@@ -297,7 +300,5 @@ func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursReque
 	for _, t := range tours {
 		pbTours = append(pbTours, mapTourToPb(&t))
 	}
-	return &pb.GetAllToursResponse{
-		Tours: pbTours,
-	}, nil
-}
+
+}*/

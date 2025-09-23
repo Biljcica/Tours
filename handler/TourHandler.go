@@ -240,3 +240,51 @@ func (h *ToursHandler) GetPublishedTours(ctx context.Context, req *pb.GetPublish
 		Tours: pbTours,
 	}, nil
 }
+
+func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursRequest) (*pb.GetAllToursResponse, error) {
+	tours, err := h.TourService.GetAllTours(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get tours: %v", err)
+	}
+
+	// 🟢 Debug print: šta vraća GetAllTours
+	fmt.Println("=== DEBUG: Sve ture iz baze ===")
+	for i, t := range tours {
+		fmt.Printf("%d) Tour ID: %s, Name: %s, Status: '%s', KeyPoints len: %d\n",
+			i+1, t.ID, t.Name, t.Status, len(t.KeyPoints))
+	}
+	fmt.Println("=== KRAJ DEBUG ===")
+
+	var pbTours []*pb.PublishedTour
+	for _, t := range tours {
+
+		var pbKeyPoints []*pb.KeyPoint
+		for _, kp := range t.KeyPoints {
+			pbKeyPoints = append(pbKeyPoints, &pb.KeyPoint{
+				Id:          kp.ID,
+				Name:        kp.Name,
+				Description: kp.Description,
+				Latitude:    kp.Latitude,
+				Longitude:   kp.Longitude,
+				ImageURL:    kp.ImageURL,
+				Order:       kp.Order,
+			})
+		}
+
+		pbTours = append(pbTours, &pb.PublishedTour{
+			Id:          t.ID,
+			Name:        t.Name,
+			Price:       t.Price,
+			Description: t.Description,
+			Length:      10.0,
+			StartTime:   "2025-01-01T09:00:00Z",
+			KeyPoints:   pbKeyPoints,
+		})
+	}
+
+	fmt.Printf("=== DEBUG: Filtered published tours count: %d ===\n", len(pbTours))
+
+	return &pb.GetAllToursResponse{
+		Tours: pbTours,
+	}, nil
+}

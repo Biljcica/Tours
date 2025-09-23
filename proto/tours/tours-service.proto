@@ -20,6 +20,9 @@ service ToursService {
 
   // Brisanje kljucne tacke
   rpc DeleteKeyPoint(DeleteKeyPointRequest) returns (DeleteKeyPointResponse);
+
+  // Preuzimanje svih tura
+  rpc GetAllTours(GetAllToursRequest) returns (GetAllToursResponse);
 }
 
 
@@ -101,4 +104,10 @@ message DeleteKeyPointRequest {
 
 message DeleteKeyPointResponse {
   bool success = 1;
+}
+
+message GetAllToursRequest {}
+
+message GetAllToursResponse {
+  repeated TourResponse tours = 1;
 }

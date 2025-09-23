@@ -3,7 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
-	
+
 	"database-example/model"
 	pb "database-example/proto/tours"
 	"database-example/service"
@@ -37,7 +37,7 @@ func mapTourToPb(t *model.Tour) *pb.TourResponse {
 			Latitude:    kp.Latitude,
 			Longitude:   kp.Longitude,
 			ImageURL:    kp.ImageURL,
-			Order:		 kp.Order,
+			Order:       kp.Order,
 		})
 	}
 
@@ -114,7 +114,7 @@ func (h *ToursHandler) AddKeyPoint(ctx context.Context, req *pb.AddKeyPointReque
 		Latitude:    req.Point.Latitude,
 		Longitude:   req.Point.Longitude,
 		ImageURL:    req.Point.ImageURL,
-		Order:		 req.Point.Order,
+		Order:       req.Point.Order,
 	}
 
 	tour, err := h.TourService.AddKeyPointToTour(ctx, req.TourId, keyPoint)
@@ -138,7 +138,7 @@ func (h *ToursHandler) AddKeyPoint(ctx context.Context, req *pb.AddKeyPointReque
 		Latitude:    returnedKP.Latitude,
 		Longitude:   returnedKP.Longitude,
 		ImageURL:    returnedKP.ImageURL,
-		Order:       returnedKP.Order, 
+		Order:       returnedKP.Order,
 	}, nil
 
 }
@@ -159,20 +159,20 @@ func (h *ToursHandler) UpdateKeyPoint(ctx context.Context, req *pb.UpdateKeyPoin
 	}
 
 	res, err := h.TourService.UpdateKeyPoint(tourId, updatedKP)
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
-    // 3. Vrati KeyPointResponse
-    return &pb.KeyPointResponse{
-        Id:          res.ID,
-        Name:        res.Name,
-        Description: res.Description,
-        Latitude:    res.Latitude,
-        Longitude:   res.Longitude,
-        ImageURL:    res.ImageURL,
-        Order:       res.Order,
-    }, nil
+	// 3. Vrati KeyPointResponse
+	return &pb.KeyPointResponse{
+		Id:          res.ID,
+		Name:        res.Name,
+		Description: res.Description,
+		Latitude:    res.Latitude,
+		Longitude:   res.Longitude,
+		ImageURL:    res.ImageURL,
+		Order:       res.Order,
+	}, nil
 }
 
 // Brisanje kljucne tacke
@@ -184,8 +184,24 @@ func (h *ToursHandler) DeleteKeyPoint(ctx context.Context, req *pb.DeleteKeyPoin
 	// Pozovi servis
 	err := h.TourService.DeleteKeyPoint(ctx, req.TourId, req.KeypointId)
 	if err != nil {
-        return &pb.DeleteKeyPointResponse{Success: false}, err
-    }
+		return &pb.DeleteKeyPointResponse{Success: false}, err
+	}
 
 	return &pb.DeleteKeyPointResponse{Success: true}, nil
+}
+
+func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursRequest) (*pb.GetAllToursResponse, error) {
+	tours, err := h.TourService.GetAllTours(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get all tours: %v", err)
+	}
+
+	var pbTours []*pb.TourResponse
+	for _, t := range tours {
+		pbTours = append(pbTours, mapTourToPb(&t))
+	}
+
+	return &pb.GetAllToursResponse{
+		Tours: pbTours,
+	}, nil
 }

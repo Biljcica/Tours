@@ -7,6 +7,8 @@ import (
 	"database-example/model"
 	pb "database-example/proto/tours"
 	"database-example/service"
+	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -190,6 +192,101 @@ func (h *ToursHandler) DeleteKeyPoint(ctx context.Context, req *pb.DeleteKeyPoin
 	return &pb.DeleteKeyPointResponse{Success: true}, nil
 }
 
+func (h *ToursHandler) GetPublishedTours(ctx context.Context, req *pb.GetPublishedToursRequest) (*pb.GetPublishedToursResponse, error) {
+	tours, err := h.TourService.GetAllTours(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get tours: %v", err)
+	}
+
+	// 🟢 Debug print: šta vraća GetAllTours
+	fmt.Println("=== DEBUG: Sve ture iz baze ===")
+	for i, t := range tours {
+		fmt.Printf("%d) Tour ID: %s, Name: %s, Status: '%s', KeyPoints len: %d\n",
+			i+1, t.ID, t.Name, t.Status, len(t.KeyPoints))
+	}
+	fmt.Println("=== KRAJ DEBUG ===")
+
+	var pbTours []*pb.PublishedTour
+	for _, t := range tours {
+		if strings.ToLower(strings.TrimSpace(t.Status)) != "publish" {
+			continue
+		}
+
+		var pbKeyPoints []*pb.KeyPoint
+		for _, kp := range t.KeyPoints {
+			pbKeyPoints = append(pbKeyPoints, &pb.KeyPoint{
+				Id:          kp.ID,
+				Name:        kp.Name,
+				Description: kp.Description,
+				Latitude:    kp.Latitude,
+				Longitude:   kp.Longitude,
+				ImageURL:    kp.ImageURL,
+				Order:       kp.Order,
+			})
+		}
+
+		pbTours = append(pbTours, &pb.PublishedTour{
+			Id:          t.ID,
+			Name:        t.Name,
+			Price:       t.Price,
+			Description: t.Description,
+			Length:      10.0,
+			StartTime:   "2025-01-01T09:00:00Z",
+			KeyPoints:   pbKeyPoints,
+		})
+	}
+
+	fmt.Printf("=== DEBUG: Filtered published tours count: %d ===\n", len(pbTours))
+
+	return &pb.GetPublishedToursResponse{
+		Tours: pbTours,
+	}, nil
+}
+
+/*func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursRequest) (*pb.GetAllToursResponse, error) {
+	tours, err := h.TourService.GetAllTours(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get tours: %v", err)
+	}
+
+	// 🟢 Debug print: šta vraća GetAllTours
+	fmt.Println("=== DEBUG: Sve ture iz baze ===")
+	for i, t := range tours {
+		fmt.Printf("%d) Tour ID: %s, Name: %s, Status: '%s', KeyPoints len: %d\n",
+			i+1, t.ID, t.Name, t.Status, len(t.KeyPoints))
+	}
+	fmt.Println("=== KRAJ DEBUG ===")
+
+	var pbTours []*pb.PublishedTour
+	for _, t := range tours {
+
+		var pbKeyPoints []*pb.KeyPoint
+		for _, kp := range t.KeyPoints {
+			pbKeyPoints = append(pbKeyPoints, &pb.KeyPoint{
+				Id:          kp.ID,
+				Name:        kp.Name,
+				Description: kp.Description,
+				Latitude:    kp.Latitude,
+				Longitude:   kp.Longitude,
+				ImageURL:    kp.ImageURL,
+				Order:       kp.Order,
+			})
+		}
+
+		pbTours = append(pbTours, &pb.PublishedTour{
+			Id:          t.ID,
+			Name:        t.Name,
+			Price:       t.Price,
+			Description: t.Description,
+			Length:      10.0,
+			StartTime:   "2025-01-01T09:00:00Z",
+			KeyPoints:   pbKeyPoints,
+		})
+	}
+
+	fmt.Printf("=== DEBUG: Filtered published tours count: %d ===\n", len(pbTours))
+
+=======*/
 func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursRequest) (*pb.GetAllToursResponse, error) {
 	tours, err := h.TourService.GetAllTours(ctx)
 	if err != nil {
@@ -200,7 +297,6 @@ func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursReque
 	for _, t := range tours {
 		pbTours = append(pbTours, mapTourToPb(&t))
 	}
-
 	return &pb.GetAllToursResponse{
 		Tours: pbTours,
 	}, nil

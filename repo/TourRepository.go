@@ -3,12 +3,13 @@ package repo
 import (
 	"context"
 	"time"
-	"sort"
+	"log"
 
 	"database-example/model"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type TourRepository struct {
@@ -23,6 +24,8 @@ func NewTourRepository(collection *mongo.Collection) *TourRepository {
 func (r *TourRepository) CreateTour(ctx context.Context, tour *model.Tour) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
+	log.Printf("Tour before insert: %+v", tour)
 
 	_, err := r.Collection.InsertOne(ctx, tour)
 	return err
@@ -102,6 +105,8 @@ func (r *TourRepository) UpdateTour(ctx context.Context, id string, updatedTour 
 			"tags":        updatedTour.Tags,
 			"status":      updatedTour.Status,
 			"keypoints":   updatedTour.KeyPoints,
+			"distance":	   updatedTour.Distance,
+			"durations":   updatedTour.Durations,
 			// dodaj i ostala polja ako ih imaš
 		},
 	}
@@ -110,29 +115,29 @@ func (r *TourRepository) UpdateTour(ctx context.Context, id string, updatedTour 
 	return err
 }
 
-func (r *TourRepository) DeleteKeyPoint(ctx context.Context, tourId, keyPointId string) error {
-    tour, err := r.GetTourByID(ctx, tourId)
+func (r *TourRepository) ChangeTourStatus(ctx context.Context, tourID string, updateFields map[string]interface{}) (*model.Tour, error) {
+    filter := bson.M{"id": tourID}
+    updateFields["updatedAt"] = time.Now()
+
+	if publishedAt, ok := updateFields["publishedAt"].(*time.Time); ok && publishedAt != nil {
+        updateFields["publishedAt"] = *publishedAt
+    }
+    if archivedAt, ok := updateFields["archivedAt"].(*time.Time); ok && archivedAt != nil {
+        updateFields["archivedAt"] = *archivedAt
+    }
+
+    update := bson.M{"$set": updateFields}
+
+    var updatedTour model.Tour
+    updateOpts := options.FindOneAndUpdate().SetReturnDocument(options.After) // vrati ažurirani dokument
+
+    err := r.Collection.FindOneAndUpdate(ctx, filter, update, updateOpts).Decode(&updatedTour)
     if err != nil {
-        return err
-    }
-
-    newKeyPoints := make([]model.KeyPoint, 0)
-    order := int32(1)
-
-    // Sortiraj sve kljucne tacke 
-    sort.SliceStable(tour.KeyPoints, func(i, j int) bool {
-        return tour.KeyPoints[i].Order < tour.KeyPoints[j].Order
-    })
-
-    for _, kp := range tour.KeyPoints {
-        if kp.ID == keyPointId {
-            continue // preskoci obrisanu tacku
+        if err == mongo.ErrNoDocuments {
+            return nil, mongo.ErrNoDocuments
         }
-        kp.Order = order // reorduj preostale tacke
-        newKeyPoints = append(newKeyPoints, kp)
-        order++
+        return nil, err
     }
 
-    tour.KeyPoints = newKeyPoints
-    return r.UpdateTour(ctx, tourId, tour)
+    return &updatedTour, nil
 }

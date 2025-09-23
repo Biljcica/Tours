@@ -19,12 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ToursService_CreateTour_FullMethodName     = "/ToursService/CreateTour"
-	ToursService_GetAuthorTours_FullMethodName = "/ToursService/GetAuthorTours"
-	ToursService_GetTourById_FullMethodName    = "/ToursService/GetTourById"
-	ToursService_AddKeyPoint_FullMethodName    = "/ToursService/AddKeyPoint"
-	ToursService_UpdateKeyPoint_FullMethodName = "/ToursService/UpdateKeyPoint"
-	ToursService_DeleteKeyPoint_FullMethodName = "/ToursService/DeleteKeyPoint"
+	ToursService_CreateTour_FullMethodName       = "/ToursService/CreateTour"
+	ToursService_GetAuthorTours_FullMethodName   = "/ToursService/GetAuthorTours"
+	ToursService_GetTourById_FullMethodName      = "/ToursService/GetTourById"
+	ToursService_UpdateTourStatus_FullMethodName = "/ToursService/UpdateTourStatus"
+	ToursService_AddKeyPoint_FullMethodName      = "/ToursService/AddKeyPoint"
+	ToursService_UpdateKeyPoint_FullMethodName   = "/ToursService/UpdateKeyPoint"
+	ToursService_DeleteKeyPoint_FullMethodName   = "/ToursService/DeleteKeyPoint"
 )
 
 // ToursServiceClient is the client API for ToursService service.
@@ -37,6 +38,8 @@ type ToursServiceClient interface {
 	GetAuthorTours(ctx context.Context, in *GetAuthorToursRequest, opts ...grpc.CallOption) (*GetAuthorToursResponse, error)
 	// Dobavljanje ture po id
 	GetTourById(ctx context.Context, in *GetTourByIdRequest, opts ...grpc.CallOption) (*TourResponse, error)
+	// Objavljivanje ture i arhiviranje
+	UpdateTourStatus(ctx context.Context, in *UpdateTourStatusRequest, opts ...grpc.CallOption) (*UpdateTourStatusResponse, error)
 	// Dodavanje ključne tačke na turu
 	AddKeyPoint(ctx context.Context, in *AddKeyPointRequest, opts ...grpc.CallOption) (*KeyPointResponse, error)
 	// Izmjena kljucne tacke
@@ -83,6 +86,16 @@ func (c *toursServiceClient) GetTourById(ctx context.Context, in *GetTourByIdReq
 	return out, nil
 }
 
+func (c *toursServiceClient) UpdateTourStatus(ctx context.Context, in *UpdateTourStatusRequest, opts ...grpc.CallOption) (*UpdateTourStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateTourStatusResponse)
+	err := c.cc.Invoke(ctx, ToursService_UpdateTourStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *toursServiceClient) AddKeyPoint(ctx context.Context, in *AddKeyPointRequest, opts ...grpc.CallOption) (*KeyPointResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(KeyPointResponse)
@@ -123,6 +136,8 @@ type ToursServiceServer interface {
 	GetAuthorTours(context.Context, *GetAuthorToursRequest) (*GetAuthorToursResponse, error)
 	// Dobavljanje ture po id
 	GetTourById(context.Context, *GetTourByIdRequest) (*TourResponse, error)
+	// Objavljivanje ture i arhiviranje
+	UpdateTourStatus(context.Context, *UpdateTourStatusRequest) (*UpdateTourStatusResponse, error)
 	// Dodavanje ključne tačke na turu
 	AddKeyPoint(context.Context, *AddKeyPointRequest) (*KeyPointResponse, error)
 	// Izmjena kljucne tacke
@@ -147,6 +162,9 @@ func (UnimplementedToursServiceServer) GetAuthorTours(context.Context, *GetAutho
 }
 func (UnimplementedToursServiceServer) GetTourById(context.Context, *GetTourByIdRequest) (*TourResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTourById not implemented")
+}
+func (UnimplementedToursServiceServer) UpdateTourStatus(context.Context, *UpdateTourStatusRequest) (*UpdateTourStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateTourStatus not implemented")
 }
 func (UnimplementedToursServiceServer) AddKeyPoint(context.Context, *AddKeyPointRequest) (*KeyPointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddKeyPoint not implemented")
@@ -232,6 +250,24 @@ func _ToursService_GetTourById_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ToursService_UpdateTourStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTourStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ToursServiceServer).UpdateTourStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ToursService_UpdateTourStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ToursServiceServer).UpdateTourStatus(ctx, req.(*UpdateTourStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ToursService_AddKeyPoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AddKeyPointRequest)
 	if err := dec(in); err != nil {
@@ -304,6 +340,10 @@ var ToursService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTourById",
 			Handler:    _ToursService_GetTourById_Handler,
+		},
+		{
+			MethodName: "UpdateTourStatus",
+			Handler:    _ToursService_UpdateTourStatus_Handler,
 		},
 		{
 			MethodName: "AddKeyPoint",

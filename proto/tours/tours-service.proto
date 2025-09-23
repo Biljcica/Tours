@@ -2,6 +2,9 @@ syntax = "proto3";
 
 option go_package = "proto/tours";
 
+import "google/protobuf/timestamp.proto";
+
+
 service ToursService {
   // Kreiranje nove ture
   rpc CreateTour(CreateTourRequest) returns (TourResponse);
@@ -11,6 +14,9 @@ service ToursService {
 
   //Dobavljanje ture po id
   rpc GetTourById(GetTourByIdRequest) returns (TourResponse);
+
+  // Objavljivanje ture i arhiviranje 
+  rpc UpdateTourStatus(UpdateTourStatusRequest) returns (UpdateTourStatusResponse);
 
   // Dodavanje ključne tačke na turu
   rpc AddKeyPoint(AddKeyPointRequest) returns (KeyPointResponse);
@@ -29,9 +35,7 @@ message CreateTourRequest {
   string description = 2;
   string difficulty = 3;
   repeated string tags = 4;
-  string status = 5; // npr. "draft"
-  double price = 6;
-  string authorId = 7; // možeš dodati ako vezuješ turu za korisnika
+  string authorId = 5; 
 }
 
 // Odgovor sa kreiranom turom
@@ -41,11 +45,33 @@ message TourResponse {
   string description = 3;
   string difficulty = 4;
   repeated string tags = 5;
-  string status = 6;
+  TourStatus status = 6;
   double price = 7;
   string authorId = 8;
-  repeated KeyPoint keyPoints = 9; // <- dodaj ovo
+  repeated KeyPoint keyPoints = 9; 
+  repeated Duration durations = 10;
+  double distance = 11;
+  google.protobuf.Timestamp publishedAt = 12; 
+  google.protobuf.Timestamp archivedAt = 13;             
+}
 
+enum TourStatus {
+  TOUR_STATUS_UNSPECIFIED = 0;
+  DRAFT = 1;
+  PUBLISHED = 2;
+  ARCHIVED = 3;
+}
+
+enum TransportType {
+  TRANSPORT_TYPE_UNSPECIFIED = 0;
+  WALKING = 1;
+  BIKE = 2;
+  CAR = 3;
+}
+
+message Duration {
+  TransportType mode = 1;
+  int32 minutes = 2;
 }
 
 // Zahtev za listu tura autora
@@ -60,6 +86,18 @@ message GetAuthorToursResponse {
 
 message GetTourByIdRequest {
   string id = 1;
+}
+
+message UpdateTourStatusRequest {
+  string tourId = 1;
+  string authorId = 2;
+  TourStatus newStatus = 3; 
+}
+
+message UpdateTourStatusResponse {
+  string tourId = 1;
+  TourStatus status = 2;
+  google.protobuf.Timestamp updatedAt = 3;
 }
 
 message KeyPoint {

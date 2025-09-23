@@ -5,12 +5,14 @@ import (
 	"fmt"
 	
 	"database-example/model"
+	"database-example/mapper"
 	pb "database-example/proto/tours"
 	"database-example/service"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ToursHandler struct {
@@ -25,36 +27,6 @@ func NewToursHandler(toursService *service.TourService) *ToursHandler {
 }
 
 // ------------------------------------------------
-// Pomocna funkcija: mapiranje model.Tour -> pb.TourResponse
-// ------------------------------------------------
-func mapTourToPb(t *model.Tour) *pb.TourResponse {
-	var pbKeyPoints []*pb.KeyPoint
-	for _, kp := range t.KeyPoints {
-		pbKeyPoints = append(pbKeyPoints, &pb.KeyPoint{
-			Id:          kp.ID,
-			Name:        kp.Name,
-			Description: kp.Description,
-			Latitude:    kp.Latitude,
-			Longitude:   kp.Longitude,
-			ImageURL:    kp.ImageURL,
-			Order:		 kp.Order,
-		})
-	}
-
-	return &pb.TourResponse{
-		Id:          t.ID,
-		Name:        t.Name,
-		Description: t.Description,
-		Difficulty:  t.Difficulty,
-		Tags:        t.Tags,
-		Price:       t.Price,
-		Status:      t.Status,
-		AuthorId:    t.AuthorID,
-		KeyPoints:   pbKeyPoints,
-	}
-}
-
-// ------------------------------------------------
 // Kreiranje ture
 // ------------------------------------------------
 func (h *ToursHandler) CreateTour(ctx context.Context, req *pb.CreateTourRequest) (*pb.TourResponse, error) {
@@ -63,7 +35,7 @@ func (h *ToursHandler) CreateTour(ctx context.Context, req *pb.CreateTourRequest
 		return nil, status.Errorf(codes.Internal, "failed to create tour: %v", err)
 	}
 
-	return mapTourToPb(tour), nil
+	return mapper.MapTourToPb(tour), nil
 }
 
 // ------------------------------------------------
@@ -77,7 +49,7 @@ func (h *ToursHandler) GetAuthorTours(ctx context.Context, req *pb.GetAuthorTour
 
 	var pbTours []*pb.TourResponse
 	for _, t := range tours {
-		pbTours = append(pbTours, mapTourToPb(&t))
+		pbTours = append(pbTours, mapper.MapTourToPb(&t))
 	}
 
 	return &pb.GetAuthorToursResponse{
@@ -98,7 +70,7 @@ func (h *ToursHandler) GetTourById(ctx context.Context, req *pb.GetTourByIdReque
 	}
 
 	// Pretvori model.Tour u pb.TourResponse
-	resp := mapTourToPb(tour)
+	resp := mapper.MapTourToPb(tour)
 
 	return resp, nil
 }
@@ -188,4 +160,54 @@ func (h *ToursHandler) DeleteKeyPoint(ctx context.Context, req *pb.DeleteKeyPoin
     }
 
 	return &pb.DeleteKeyPointResponse{Success: true}, nil
+}
+
+func (h *ToursHandler) UpdateTourStatus(ctx context.Context, req *pb.UpdateTourStatusRequest) (*pb.UpdateTourStatusResponse, error) {
+    if req.TourId == "" || req.AuthorId == "" {
+        return nil, status.Error(codes.InvalidArgument, "tourId and authorId are required")
+    }
+	if req.NewStatus == pb.TourStatus_TOUR_STATUS_UNSPECIFIED {
+		return nil, status.Error(codes.InvalidArgument, "newStatus is required")
+	}
+
+    tour, err := h.TourService.GetTour(ctx, req.TourId)
+    if err != nil {
+        return nil, status.Errorf(codes.NotFound, "tour not found: %v", err)
+    }
+
+    // Autorizacija
+    if tour.AuthorID != req.AuthorId {
+        return nil, status.Error(codes.PermissionDenied, "not authorized to publish this tour")
+    }
+
+	var updatedTour *model.Tour
+	switch req.NewStatus {
+	case pb.TourStatus_PUBLISHED:
+		updatedTour, err = h.TourService.PublishTour(ctx, tour)
+	case pb.TourStatus_ARCHIVED:
+		updatedTour, err = h.TourService.ArchiveTour(ctx, tour)
+	default:
+		return nil, status.Error(codes.InvalidArgument, "unsupported status")
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to update tour status: %v", err)
+	}
+
+	var updatedAt *timestamppb.Timestamp
+	switch req.NewStatus {
+	case pb.TourStatus_PUBLISHED:
+		if updatedTour.PublishedAt != nil {
+			updatedAt = timestamppb.New(*updatedTour.PublishedAt)
+		}
+	case pb.TourStatus_ARCHIVED:
+		if updatedTour.ArchivedAt != nil {
+			updatedAt = timestamppb.New(*updatedTour.ArchivedAt)
+		}
+	}
+
+    return &pb.UpdateTourStatusResponse{
+        TourId:      updatedTour.ID,
+        Status:      req.NewStatus,
+		UpdatedAt:   updatedAt,
+	}, nil
 }

@@ -71,19 +71,22 @@ message TourResponse {
   TourStatus status = 6;
   double price = 7;
   string authorId = 8;
-  repeated KeyPoint keyPoints = 9; 
+  repeated KeyPoint keyPoints = 9;
   repeated Duration durations = 10;
-  double distance = 11;
-  google.protobuf.Timestamp publishedAt = 12; 
-  google.protobuf.Timestamp archivedAt = 13;             
+  double distance = 11;    
+  google.protobuf.Timestamp publishedAt = 12;
+  google.protobuf.Timestamp archivedAt = 13;  
+  double averageRating = 14;
 }
 
 enum TourStatus {
   TOUR_STATUS_UNSPECIFIED = 0;
   DRAFT = 1;
-  PUBLISHED = 2;
-  ARCHIVED = 3;
+  PENDING_PUBLISH = 2;
+  PUBLISHED = 3;
+  ARCHIVED = 4;
 }
+
 
 enum TransportType {
   TRANSPORT_TYPE_UNSPECIFIED = 0;

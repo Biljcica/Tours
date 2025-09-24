@@ -15,14 +15,19 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
     "google.golang.org/grpc/status"
+    //"github.com/andjelavukosav/Docker/common/saga/publish_tour"
 )
 
 type TourService struct {
 	TourRepo *repo.TourRepository
+    PublishTourOrchestrator *PublishTourOrchestrator
 }
 
-func NewTourService(tourRepo *repo.TourRepository) *TourService {
-	return &TourService{TourRepo: tourRepo}
+func NewTourService(tourRepo *repo.TourRepository, orchestrator *PublishTourOrchestrator) *TourService {
+	return &TourService{
+        TourRepo: tourRepo,
+        PublishTourOrchestrator: orchestrator,
+    }
 }
 
 func (s *TourService) CreateTour(ctx context.Context, authorID, name, description, difficulty string, tags []string) (*model.Tour, error) {
@@ -79,6 +84,30 @@ func (s *TourService) PublishTour(ctx context.Context, tour *model.Tour) (*model
 
     return updatedTour, nil
 }
+
+/*func (s *TourService) PublishTour(ctx context.Context, tour *model.Tour) error {
+	// Validacija tura
+	if err := s.validateForPublish(tour); err != nil {
+		return status.Errorf(codes.InvalidArgument, "cannot publish tour: %v", err)
+	}
+
+	// Startujemo SAGA workflow, orchestrator će poslati komandu drugim servisima
+	tourDetails := publish_tour.TourDetails{
+		ID:          tour.ID,
+		Name:        tour.Name,
+		Description: tour.Description,
+		Price:       tour.Price,
+	}
+
+	err := s.PublishTourOrchestrator.Start(tourDetails)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to start publish tour saga: %v", err)
+	}
+
+	// Status se neće menjati ovde – promena se dešava kada orchestrator primi success reply
+	return nil
+}
+*/
 
 func (s *TourService) ArchiveTour(ctx context.Context, tour *model.Tour) (*model.Tour, error) {
 

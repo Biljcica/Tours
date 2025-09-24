@@ -23,6 +23,8 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+    "github.com/andjelavukosav/Docker/common/saga/messaging/nats"
 )
 
 func initDB() *mongo.Database {
@@ -58,7 +60,52 @@ func main() {
 
 	// za Tour
 	tourRepo := &repo.TourRepository{Collection: collection}
-	tourService := &service.TourService{TourRepo: tourRepo}
+	//tourService := &service.TourService{TourRepo: tourRepo}
+
+		// --- NATS setup ---
+	natsHost := os.Getenv("NATS_HOST")
+	if natsHost == "" {
+		natsHost = "nats"
+	}
+	natsPort := os.Getenv("NATS_PORT")
+	if natsPort == "" {
+		natsPort = "4222"
+	}
+
+	natsUser := os.Getenv("NATS_USER")
+	natsPass := os.Getenv("NATS_PASS")
+
+	queueGroup := "tours_service_group"
+
+	// Publisher šalje komande
+	commandPublisher, err := nats.NewNATSPublisher(
+		natsHost, natsPort, natsUser, natsPass,
+		os.Getenv("PUBLISH_TOUR_COMMAND_SUBJECT"),
+	)
+	if err != nil {
+		logger.Fatal("Failed to create NATS publisher:", err)
+	}
+
+	// Subscriber prima reply-e, koristi queue group
+	replySubscriber, err := nats.NewNATSSubscriber(
+		natsHost, natsPort, natsUser, natsPass,
+		os.Getenv("PUBLISH_TOUR_REPLY_SUBJECT"),
+		queueGroup,
+	)
+	if err != nil {
+		logger.Fatal("Failed to create NATS subscriber:", err)
+	}
+
+	publishTourOrchestrator, err := service.NewPublishTourOrchestrator(commandPublisher, replySubscriber, tourRepo)
+	if err != nil {
+		logger.Fatal("Failed to create PublishTourOrchestrator:", err)
+	}
+	tourService := &service.TourService{
+		TourRepo: tourRepo,
+		PublishTourOrchestrator: publishTourOrchestrator, // ovde dodaješ orchestrator
+	}
+
+
 	tourHandler := handlers.NewToursHandler(tourService)
 
 	// za Position

@@ -59,6 +59,8 @@ func MapStatusToPb(status model.TourStatus) pb.TourStatus {
 	switch status {
 	case model.Draft:
 		return pb.TourStatus_DRAFT
+	case model.PendingPublish:   
+		return pb.TourStatus_PENDING_PUBLISH
 	case model.Published:
 		return pb.TourStatus_PUBLISHED
 	case model.Archived:

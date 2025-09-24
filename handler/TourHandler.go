@@ -8,7 +8,6 @@ import (
 	"database-example/mapper"
 	pb "database-example/proto/tours"
 	"database-example/service"
-	"strings"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -169,7 +168,6 @@ func (h *ToursHandler) GetPublishedTours(ctx context.Context, req *pb.GetPublish
 		return nil, status.Errorf(codes.Internal, "failed to get tours: %v", err)
 	}
 
-	// 🟢 Debug print: šta vraća GetAllTours
 	fmt.Println("=== DEBUG: Sve ture iz baze ===")
 	for i, t := range tours {
 		fmt.Printf("%d) Tour ID: %s, Name: %s, Status: '%s', KeyPoints len: %d\n",
@@ -178,8 +176,10 @@ func (h *ToursHandler) GetPublishedTours(ctx context.Context, req *pb.GetPublish
 	fmt.Println("=== KRAJ DEBUG ===")
 
 	var pbTours []*pb.PublishedTour
+	
 	for _, t := range tours {
-		if strings.ToLower(strings.TrimSpace(t.Status)) != "publish" {
+		
+		if t.Status != model.Published {
 			continue
 		}
 
@@ -201,7 +201,7 @@ func (h *ToursHandler) GetPublishedTours(ctx context.Context, req *pb.GetPublish
 			Name:        t.Name,
 			Price:       t.Price,
 			Description: t.Description,
-			Length:      10.0,
+			Length:      t.Distance,
 			StartTime:   "2025-01-01T09:00:00Z",
 			KeyPoints:   pbKeyPoints,
 		})
@@ -220,7 +220,6 @@ func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursReque
 		return nil, status.Errorf(codes.Internal, "failed to get tours: %v", err)
 	}
 
-	// 🟢 Debug print: šta vraća GetAllTours
 	fmt.Println("=== DEBUG: Sve ture iz baze ===")
 	for i, t := range tours {
 		fmt.Printf("%d) Tour ID: %s, Name: %s, Status: '%s', KeyPoints len: %d\n",
@@ -325,3 +324,54 @@ func (h *ToursHandler) UpdateTourStatus(ctx context.Context, req *pb.UpdateTourS
 		UpdatedAt:   updatedAt,
 	}, nil
 }
+
+/*func (h *ToursHandler) UpdateTourStatus(ctx context.Context, req *pb.UpdateTourStatusRequest) (*pb.UpdateTourStatusResponse, error) {
+    if req.TourId == "" || req.AuthorId == "" {
+        return nil, status.Error(codes.InvalidArgument, "tourId and authorId are required")
+    }
+    if req.NewStatus == pb.TourStatus_TOUR_STATUS_UNSPECIFIED {
+        return nil, status.Error(codes.InvalidArgument, "newStatus is required")
+    }
+
+    tour, err := h.TourService.GetTour(ctx, req.TourId)
+    if err != nil {
+        return nil, status.Errorf(codes.NotFound, "tour not found: %v", err)
+    }
+
+    if tour.AuthorID != req.AuthorId {
+        return nil, status.Error(codes.PermissionDenied, "not authorized to update this tour")
+    }
+
+    switch req.NewStatus {
+    case pb.TourStatus_PUBLISHED:
+        // Startuje SAGA workflow, asinhrono
+        err = h.TourService.PublishTour(ctx, tour)
+        if err != nil {
+            return nil, status.Errorf(codes.Internal, "failed to start publish tour workflow: %v", err)
+        }
+
+        // Vraća inicijalni odgovor jer status još nije ažuriran u bazi
+        response := &pb.UpdateTourStatusResponse{
+            TourId: tour.ID,
+            Status: pb.TourStatus_PENDING_PUBLISH, // ili custom "PENDING_PUBLISH"
+            UpdatedAt: nil,               // još nema timestamp
+        }
+		log.Printf("[UpdateTourStatus] Returning response: %+v", response)
+        return response, nil
+
+    case pb.TourStatus_ARCHIVED:
+        updatedTour, err := h.TourService.ArchiveTour(ctx, tour)
+        if err != nil {
+            return nil, status.Errorf(codes.Internal, "failed to archive tour: %v", err)
+        }
+        return &pb.UpdateTourStatusResponse{
+            TourId:    updatedTour.ID,
+            Status:    pb.TourStatus_ARCHIVED,
+            UpdatedAt: timestamppb.New(*updatedTour.ArchivedAt),
+        }, nil
+
+    default:
+        return nil, status.Error(codes.InvalidArgument, "unsupported status")
+    }
+}*/
+

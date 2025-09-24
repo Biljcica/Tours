@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/mongo" // <-- dodaj ovo
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -31,7 +32,6 @@ func (s *TourExecutionService) StartTour(ctx context.Context, tourID, userID str
 		return nil, status.Error(codes.InvalidArgument, "tourID i userID su obavezni")
 	}
 
-	// Kreiranje TourExecution objekta
 	exec := &model.TourExecution{
 		ID:                 uuid.New().String(),
 		TourID:             tourID,
@@ -42,7 +42,6 @@ func (s *TourExecutionService) StartTour(ctx context.Context, tourID, userID str
 		CompletedKeyPoints: []model.CompletedKeyPoint{},
 	}
 
-	// Sačuvaj u bazi
 	if err := s.ExecutionRepo.CreateTourExecution(ctx, exec); err != nil {
 		return nil, status.Errorf(codes.Internal, "greska prilikom kreiranja sesije: %v", err)
 	}
@@ -50,7 +49,7 @@ func (s *TourExecutionService) StartTour(ctx context.Context, tourID, userID str
 	return exec, nil
 }
 
-// UpdatePosition ažurira trenutnu poziciju i lastActivityTime
+// UpdatePosition ažurira lastActivityTime
 func (s *TourExecutionService) UpdatePosition(ctx context.Context, execID string) error {
 	return s.ExecutionRepo.UpdateLastActivityTime(ctx, execID)
 }
@@ -61,12 +60,12 @@ func (s *TourExecutionService) CompleteTour(ctx context.Context, execID string) 
 }
 
 // AbandonTour napušta turu
-func (s *TourExecutionService) AbandonTour(ctx context.Context, execID string, userID string) error {
+func (s *TourExecutionService) AbandonTour(ctx context.Context, execID, userID string) error {
 	return s.ExecutionRepo.AbandonTour(ctx, execID, userID)
 }
 
 // AddCompletedKeyPoint beleži završenu ključnu tačku
-func (s *TourExecutionService) AddCompletedKeyPoint(ctx context.Context, execID string, keyPointID string) error {
+func (s *TourExecutionService) AddCompletedKeyPoint(ctx context.Context, execID, keyPointID string) error {
 	ckp := model.CompletedKeyPoint{
 		KeyPointID:  keyPointID,
 		CompletedAt: time.Now(),
@@ -76,17 +75,18 @@ func (s *TourExecutionService) AddCompletedKeyPoint(ctx context.Context, execID 
 
 // NotifyNearKeyPoint beleži da je korisnik blizu ključne tačke
 func (s *TourExecutionService) NotifyNearKeyPoint(ctx context.Context, execID, userID, keyPointID string) error {
-	// 1️⃣ Dohvati TourExecution iz baze
 	exec, err := s.ExecutionRepo.GetTourExecutionByID(ctx, execID)
 	if err != nil {
-		return err
+		if err == mongo.ErrNoDocuments {
+			return status.Error(codes.NotFound, "tour execution not found")
+		}
+		return status.Errorf(codes.Internal, "greska prilikom dohvatanja tour execution: %v", err)
 	}
 
 	if exec.TouristID != userID {
 		return fmt.Errorf("user %s not authorized for tour execution %s", userID, execID)
 	}
 
-	// 2️⃣ Proveri da li je ključna tačka već završena
 	for _, kp := range exec.CompletedKeyPoints {
 		if kp.KeyPointID == keyPointID {
 			// Već završena, samo update lastActivityTime
@@ -94,18 +94,18 @@ func (s *TourExecutionService) NotifyNearKeyPoint(ctx context.Context, execID, u
 		}
 	}
 
-	// 3️⃣ Dodaj novu završenu ključnu tačku
 	return s.ExecutionRepo.AddCompletedKeyPoint(ctx, execID, model.CompletedKeyPoint{
 		KeyPointID:  keyPointID,
 		CompletedAt: time.Now(),
 	})
 }
 
+// GetActiveTour vraća aktivnu turu za korisnika
 func (s *TourExecutionService) GetActiveTour(ctx context.Context, touristID string) (*model.TourExecution, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	filter := map[string]interface{}{
+	filter := bson.M{
 		"touristId": touristID,
 		"status":    model.StatusActive,
 	}
@@ -114,7 +114,7 @@ func (s *TourExecutionService) GetActiveTour(ctx context.Context, touristID stri
 	err := s.ExecutionRepo.Collection.FindOne(ctx, filter).Decode(&exec)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return nil, nil // nema aktivne ture
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -122,6 +122,7 @@ func (s *TourExecutionService) GetActiveTour(ctx context.Context, touristID stri
 	return &exec, nil
 }
 
+// HasTourExecution proverava da li korisnik ima izvršenje za određenu turu
 func (s *TourExecutionService) HasTourExecution(ctx context.Context, userID, tourID string) (bool, error) {
 	exec, err := s.ExecutionRepo.GetByUserAndTour(ctx, userID, tourID)
 	if err != nil && err != mongo.ErrNoDocuments {
@@ -130,13 +131,12 @@ func (s *TourExecutionService) HasTourExecution(ctx context.Context, userID, tou
 	return exec != nil, nil
 }
 
-// GetTourExecutionByID vraća samo TourExecution objekat po execID
+// GetTourExecutionByID vraća TourExecution po execID
 func (s *TourExecutionService) GetTourExecutionByID(ctx context.Context, execID string) (*model.TourExecution, error) {
 	if execID == "" {
 		return nil, status.Error(codes.InvalidArgument, "executionId je obavezan")
 	}
 
-	// Dohvati TourExecution iz baze
 	exec, err := s.ExecutionRepo.GetTourExecutionByID(ctx, execID)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -148,7 +148,7 @@ func (s *TourExecutionService) GetTourExecutionByID(ctx context.Context, execID 
 	return exec, nil
 }
 
-// AbandonTour napušta turu
+// UpdateTourExecution ažurira status ture (npr. COMPLETE)
 func (s *TourExecutionService) UpdateTourExecution(ctx context.Context, execID string) error {
 	return s.ExecutionRepo.UpdateTourExecution(ctx, execID)
 }

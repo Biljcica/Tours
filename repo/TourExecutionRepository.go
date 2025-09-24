@@ -32,16 +32,12 @@ func (r *TourExecutionRepository) CreateTourExecution(ctx context.Context, exec 
 }
 
 // UpdateLastActivityTime ažurira lastActivityTime i eventualno CurrentPosition
-func (r *TourExecutionRepository) UpdateLastActivityTime(ctx context.Context, execID string, position *model.Position) error {
+func (r *TourExecutionRepository) UpdateLastActivityTime(ctx context.Context, execID string) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	update := map[string]interface{}{
 		"lastActivityTime": time.Now(),
-	}
-
-	if position != nil {
-		update["currentPosition"] = position
 	}
 
 	_, err := r.Collection.UpdateOne(ctx, map[string]interface{}{"id": execID}, map[string]interface{}{
@@ -71,10 +67,9 @@ func (r *TourExecutionRepository) AbandonTour(ctx context.Context, execID string
 
 	now := time.Now()
 
-	// filter uključuje i executionId i userId
 	filter := map[string]interface{}{
-		"id":     execID,
-		"userId": userID,
+		"id":        execID,
+		"touristId": userID, // ✔ koristi tačan naziv iz Mongo dokumenta
 	}
 
 	update := map[string]interface{}{
@@ -89,9 +84,8 @@ func (r *TourExecutionRepository) AbandonTour(ctx context.Context, execID string
 		return err
 	}
 
-	// Ako ništa nije ažurirano, znači da nije pronađena sesija
 	if res.MatchedCount == 0 {
-		return fmt.Errorf("no tour execution found for id=%s and userId=%s", execID, userID)
+		return fmt.Errorf("no tour execution found for id=%s and touristId=%s", execID, userID)
 	}
 
 	return nil
@@ -111,4 +105,62 @@ func (r *TourExecutionRepository) AddCompletedKeyPoint(ctx context.Context, exec
 		},
 	})
 	return err
+}
+
+func (r *TourExecutionRepository) GetTourExecutionByID(ctx context.Context, execID string) (*model.TourExecution, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var exec model.TourExecution
+	err := r.Collection.FindOne(ctx, map[string]interface{}{"id": execID}).Decode(&exec)
+	if err != nil {
+		return nil, err
+	}
+	return &exec, nil
+}
+
+func (r *TourExecutionRepository) GetByUserAndTour(ctx context.Context, userID, tourID string) (*model.TourExecution, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	filter := map[string]interface{}{
+		"touristId": userID,
+		"tourId":    tourID,
+	}
+
+	var exec model.TourExecution
+	err := r.Collection.FindOne(ctx, filter).Decode(&exec)
+	if err != nil {
+		return nil, err
+	}
+	return &exec, nil
+}
+
+func (r *TourExecutionRepository) UpdateTourExecution(ctx context.Context, execID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	now := time.Now()
+
+	filter := map[string]interface{}{
+		"id": execID,
+	}
+
+	update := map[string]interface{}{
+		"$set": map[string]interface{}{
+			"status":  model.StatusCompleted,
+			"endTime": now,
+		},
+	}
+
+	res, err := r.Collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	if res.MatchedCount == 0 {
+		return fmt.Errorf("no tour execution found for id=%s and touristId=%s", execID)
+	}
+
+	return nil
 }

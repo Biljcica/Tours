@@ -16,21 +16,20 @@ const (
 
 // CompletedKeyPoint beleži kada je turista završio ključnu tačku
 type CompletedKeyPoint struct {
-	KeyPointID string    `json:"keyPointId"`
-	CompletedAt time.Time `json:"completedAt"`
+	KeyPointID  string    `json:"keyPointId" bson:"keyPointId"`
+	CompletedAt time.Time `json:"completedAt" bson:"completedAt"`
 }
 
 // TourExecution prati aktivnu sesiju ture
 type TourExecution struct {
-	ID                string              `json:"id"`
-	TourID            string              `json:"tourId"`
-	TouristID         string              `json:"touristId"`
-	Status            TourExecutionStatus `json:"status"`
-	StartTime         time.Time           `json:"startTime"`
-	EndTime           *time.Time          `json:"endTime"` // nil dok nije završena
-	LastActivityTime  time.Time           `json:"lastActivityTime"`
-	CurrentPosition   Position            `json:"currentPosition"`
-	CompletedKeyPoints []CompletedKeyPoint `json:"completedKeyPoints"`
+	ID                 string              `json:"id" bson:"_id,omitempty"`
+	TourID             string              `json:"tourId" bson:"tourId"`
+	TouristID          string              `json:"touristId" bson:"touristId"`
+	Status             TourExecutionStatus `json:"status" bson:"status"`
+	StartTime          time.Time           `json:"startTime" bson:"startTime"`
+	EndTime            *time.Time          `json:"endTime,omitempty" bson:"endTime,omitempty"`
+	LastActivityTime   time.Time           `json:"lastActivityTime" bson:"lastActivityTime"`
+	CompletedKeyPoints []CompletedKeyPoint `json:"completedKeyPoints" bson:"completedKeyPoints"`
 }
 
 func (t *TourExecution) BeforeCreate() {

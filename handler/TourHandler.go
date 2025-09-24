@@ -2,11 +2,10 @@ package handler
 
 import (
 	"context"
-	"fmt"
-
 	"database-example/model"
 	pb "database-example/proto/tours"
 	"database-example/service"
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -16,12 +15,14 @@ import (
 
 type ToursHandler struct {
 	pb.UnimplementedToursServiceServer
-	TourService *service.TourService
+	TourService          *service.TourService
+	TourExecutionService *service.TourExecutionService
 }
 
-func NewToursHandler(toursService *service.TourService) *ToursHandler {
+func NewToursHandler(tourService *service.TourService, tourExecutionService *service.TourExecutionService) *ToursHandler {
 	return &ToursHandler{
-		TourService: toursService,
+		TourService:          tourService,
+		TourExecutionService: tourExecutionService,
 	}
 }
 
@@ -289,16 +290,140 @@ func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursReque
 	}, nil
 }
 
-/*
-func (h *ToursHandler) GetAllTours(ctx context.Context, req *pb.GetAllToursRequest) (*pb.GetAllToursResponse, error) {
-	tours, err := h.TourService.GetAllTours(ctx)
+func (h *ToursHandler) StartTour(ctx context.Context, req *pb.StartTourRequest) (*pb.StartTourResponse, error) {
+	if req.TourId == "" || req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "tourId i userId su obavezni")
+	}
+
+	// Kreiraj novu TourExecution sesiju preko TourExecutionService
+	exec, err := h.TourExecutionService.StartTour(ctx, req.TourId, req.UserId)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get all tours: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to start tour: %v", err)
 	}
 
-	var pbTours []*pb.TourResponse
-	for _, t := range tours {
-		pbTours = append(pbTours, mapTourToPb(&t))
+	// Vraćamo samo ID sesije i status
+	return &pb.StartTourResponse{
+		TourExecutionId: exec.ID,
+		Status:          string(exec.Status), // ACTIVE
+	}, nil
+}
+
+func (h *ToursHandler) LeaveTour(ctx context.Context, req *pb.LeaveTourRequest) (*pb.LeaveTourResponse, error) {
+	if req.TourExecutionId == "" || req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "tourExecutionId i userId su obavezni")
 	}
 
-}*/
+	// ovde pozovi servis koji menja status u bazi
+	err := h.TourExecutionService.AbandonTour(ctx, req.TourExecutionId, req.UserId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "neuspjelo napuštanje ture: %v", err)
+	}
+
+	return &pb.LeaveTourResponse{
+		Status: "ABANDONED",
+	}, nil
+}
+
+func (h *ToursHandler) NotifyNearKeyPoint(ctx context.Context, req *pb.NotifyNearKeyPointRequest) (*pb.NotifyNearKeyPointResponse, error) {
+	if req.ExecutionId == "" || req.KeyPointId == "" || req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "executionId, keyPointId i userId su obavezni")
+	}
+
+	err := h.TourExecutionService.NotifyNearKeyPoint(ctx, req.ExecutionId, req.UserId, req.KeyPointId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to notify key point: %v", err)
+	}
+
+	return &pb.NotifyNearKeyPointResponse{
+		Success: true,
+		Message: "Key point completion recorded",
+	}, nil
+}
+
+func (h *ToursHandler) GetActiveTour(ctx context.Context, req *pb.GetActiveTourRequest) (*pb.GetActiveTourResponse, error) {
+	exec, err := h.TourExecutionService.GetActiveTour(ctx, req.TouristId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to fetch active tour: %v", err)
+	}
+
+	if exec == nil {
+		return &pb.GetActiveTourResponse{}, nil
+	}
+
+	return &pb.GetActiveTourResponse{
+		ExecutionId: exec.ID,
+		TourId:      exec.TourID,
+		Status:      string(exec.Status),
+	}, nil
+}
+
+func (h *ToursHandler) HasTourExecution(ctx context.Context, req *pb.HasTourExecutionRequest) (*pb.HasTourExecutionResponse, error) {
+	// Validacija ulaznih parametara
+	if req.UserId == "" || req.TourId == "" {
+		return nil, status.Error(codes.InvalidArgument, "userId i tourId su obavezni")
+	}
+
+	// Pozivanje servisa koji proverava da li korisnik ima aktivnu turu
+	hasExec, err := h.TourExecutionService.HasTourExecution(ctx, req.UserId, req.TourId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to check tour execution: %v", err)
+	}
+
+	// Vraćanje rezultata
+	return &pb.HasTourExecutionResponse{
+		HasExecution: hasExec,
+	}, nil
+}
+
+func (h *ToursHandler) CheckTourCompletion(ctx context.Context, req *pb.CheckTourCompletionRequest) (*pb.CheckTourCompletionResponse, error) {
+	// 1️⃣ Validacija ulaznih parametara
+	if req.ExecutionId == "" {
+		return nil, status.Error(codes.InvalidArgument, "executionId je obavezan")
+	}
+
+	// 2️⃣ Pribavi izvršenje ture
+	exec, err := h.TourExecutionService.ExecutionRepo.GetTourExecutionByID(ctx, req.ExecutionId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to fetch tour execution: %v", err)
+	}
+	if exec == nil {
+		return nil, status.Error(codes.NotFound, "tour execution not found")
+	}
+
+	// 3️⃣ Pribavi celu turu sa ključnim tačkama
+	tour, err := h.TourService.GetTour(ctx, exec.TourID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to fetch tour: %v", err)
+	}
+	if tour == nil || len(tour.KeyPoints) == 0 {
+		return &pb.CheckTourCompletionResponse{Completed: false}, nil
+	}
+
+	// 4️⃣ Provera da li su sve ključne tačke završene
+	allVisited := true
+	for _, kp := range tour.KeyPoints {
+		found := false
+		for _, ckp := range exec.CompletedKeyPoints {
+			if ckp.KeyPointID == kp.ID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			allVisited = false
+			break
+		}
+	}
+
+	// 5️⃣ Ako jesu, promeni status ture na COMPLETED
+	if allVisited && exec.Status != model.StatusCompleted {
+		if err := h.TourExecutionService.CompleteTour(ctx, exec.ID); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to update tour status: %v", err)
+		}
+	}
+
+	// 6️⃣ Vraćanje odgovora frontendu
+	return &pb.CheckTourCompletionResponse{
+		Completed: allVisited,
+	}, nil
+}

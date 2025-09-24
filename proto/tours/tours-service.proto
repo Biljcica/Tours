@@ -24,6 +24,18 @@ service ToursService {
   rpc GetPublishedTours(GetPublishedToursRequest) returns (GetPublishedToursResponse);
 
   rpc GetAllTours(GetAllToursRequest) returns (GetAllToursResponse);
+
+  rpc StartTour(StartTourRequest) returns (StartTourResponse);
+
+  rpc LeaveTour(LeaveTourRequest) returns (LeaveTourResponse);
+
+  rpc NotifyNearKeyPoint(NotifyNearKeyPointRequest) returns (NotifyNearKeyPointResponse);
+
+  rpc GetActiveTour(GetActiveTourRequest) returns (GetActiveTourResponse);
+
+  rpc HasTourExecution(HasTourExecutionRequest) returns (HasTourExecutionResponse);
+
+  rpc CheckTourCompletion(CheckTourCompletionRequest) returns (CheckTourCompletionResponse);
 }
 
 // Zahtev je prazan
@@ -132,4 +144,68 @@ message GetAllToursRequest {}
 // Odgovor sadrži listu svih tura
 message GetAllToursResponse {
   repeated PublishedTour tours = 1;
+}
+
+message StartTourRequest {
+  string tourId = 1;
+  string userId = 2;
+}
+
+// Odgovor sadrži ID kreirane sesije i status
+message StartTourResponse {
+  string tourExecutionId = 1;
+  string status = 2; // ACTIVE
+}
+
+message LeaveTourRequest {
+  string tourExecutionId = 1;
+  string userId = 2;
+}
+
+message LeaveTourResponse {
+  string status = 1; // ABANDONED
+}
+
+message NotifyNearKeyPointResponse {
+  bool success = 1;
+  string message = 2; // opcionalno, npr. "User notified successfully"
+}
+
+message NotifyNearKeyPointRequest {
+  string executionId = 1;
+  string keyPointId = 2;
+  string userId = 3;
+}
+
+// Zahtev sadrži samo ID turiste
+message GetActiveTourRequest {
+  string touristId = 1;
+}
+
+// Odgovor vraća aktivnu turu, može biti prazan ako nema ACTIVE ture
+message GetActiveTourResponse {
+  string executionId = 1; // ID TourExecution objekta
+  string tourId = 2;      // ID ture
+  string status = 3;      // ACTIVE
+}
+
+
+// Provera da li korisnik ima aktivnu turu
+message HasTourExecutionRequest {
+  string userId = 1;
+  string tourId = 2;
+}
+
+message HasTourExecutionResponse {
+  bool hasExecution = 1;
+}
+
+// Request sadrži samo executionId
+message CheckTourCompletionRequest {
+  string executionId = 1;
+}
+
+// Response vraća da li je tura završena
+message CheckTourCompletionResponse {
+  bool completed = 1;
 }

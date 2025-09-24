@@ -59,7 +59,14 @@ func main() {
 	// za Tour
 	tourRepo := &repo.TourRepository{Collection: collection}
 	tourService := &service.TourService{TourRepo: tourRepo}
-	tourHandler := handlers.NewToursHandler(tourService)
+
+	// --- Inicijalizacija TourExecution ---
+	tourExecutionCollection := db.Collection("tour_executions") // nova kolekcija u MongoDB
+	tourExecutionRepo := repo.NewTourExecutionRepository(tourExecutionCollection)
+	tourExecutionService := service.NewTourExecutionService(tourExecutionRepo)
+
+	// prosleđivanje u ToursHandler
+	tourHandler := handlers.NewToursHandler(tourService, tourExecutionService)
 
 	// za Position
 	positionRepo := repo.NewPositionRepository(positionCollection)
